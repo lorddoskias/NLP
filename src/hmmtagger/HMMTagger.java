@@ -21,9 +21,9 @@ public class HMMTagger {
     private static final int TOKEN_TYPE = 2;
     private static final int WORD = 3;
     private static final String WORDTAG = "WORDTAG";
-    private static Map<String, Map<String, Double>> emissionParams = new HashMap<>();
-    private static Map<String, Integer> wordCount = new HashMap<>();
-    private static Map<String, Integer> ngramCount = new HashMap<>();
+    private static Map<String, Map<String, Double>> emissionParams = new HashMap<>(); //contains the result for e(y|x)
+    private static Map<String, Integer> elementCounts = new HashMap<>();    //holds count of different NGRAMs/WORDTAGs
+    private static Map<String, Double> ngramParam = new HashMap<>();   //holds q(Yi | Yi-2, Yi-1) for each ngram 
     
     /**
      * @param args the command line arguments
@@ -33,6 +33,7 @@ public class HMMTagger {
         countWords(args[0]);
         teachTagger(args[0]);
         
+        //open test data
         BufferedWriter out = new BufferedWriter(new FileWriter(args[1] + ".tagged"));
         BufferedReader in = new BufferedReader(new FileReader(args[1]));
         String line;
@@ -43,26 +44,26 @@ public class HMMTagger {
             out.write(line + " " + getMaxEmissionParameter(line));
             out.newLine();
         }
-        
-        
+
         out.close();
         in.close();
     }
     
     
-    private static void teachTagger(String inputFile) throws IOException {
+    private static void teachTagger(String countFile) throws IOException {
         
         String line;
-        Map<String, Integer> tagCount = countTags(inputFile);
+        Map<String, Integer> tagCount = countTags(countFile);
 
         //now we need to go through the file again and compute the 
         // emission parameters for each x|y
-        BufferedReader in = new BufferedReader(new FileReader(inputFile));
+        BufferedReader in = new BufferedReader(new FileReader(countFile));
         
         while((line = in.readLine()) != null) {
-            
             String tokens[] = line.split(" ");
+            
             if (tokens[TYPE].equals(WORDTAG)) {
+                //compute the emission parameters for each x|y
                 Map<String, Double> m;
                 int countY = tagCount.get(tokens[TOKEN_TYPE]);
                 int observationCount = Integer.parseInt(tokens[COUNT]);
@@ -74,19 +75,32 @@ public class HMMTagger {
                 }
                 m.put(tokens[TOKEN_TYPE], ((double) observationCount / (double)countY));
                 emissionParams.put(tokens[WORD], m);
-            }
+                
+            } else if(tokens[TYPE].equals("3-GRAM")) {
+                //compute parameters for q(Yi|Yi-2, Yi-1)
+                int divident = elementCounts.get(getNgramId(tokens));
+                int divisor = elementCounts.get(tokens[2] + " " + tokens[3]);
+                ngramParam.put(getNgramId(tokens), ((double) divident / (double) divisor));
+                
+            }  
         }
         
         in.close();
     }
     
+    /**
+     * Count the number of times a particular tag is seen in the data set
+     * @param input
+     * @return
+     * @throws FileNotFoundException
+     * @throws IOException 
+     */
     private static Map<String, Integer> countTags(String input) throws FileNotFoundException, IOException {
         String line;
         Map<String, Integer> tagCount = new HashMap<>();
 
         BufferedReader in = new BufferedReader(new FileReader(input));
-        //1. First preprocess the file to get count for each and every distinct tag 
-
+        
         while ((line = in.readLine()) != null) {
             String tokens[] = line.split(" ");
             if (tokens[TYPE].equals(WORDTAG)) {
@@ -104,24 +118,49 @@ public class HMMTagger {
         return tagCount;
     }
    
-    private static void countWords(String input) throws FileNotFoundException, IOException {
+    /**
+     * Prases the count file into a hashmap, making it convenient to work 
+     * with the data
+     * @param countFile
+     * @throws FileNotFoundException
+     * @throws IOException 
+     */
+    private static void countWords(String countFile) throws FileNotFoundException, IOException {
 
         String line;
-        BufferedReader in = new BufferedReader(new FileReader(input));
+        BufferedReader in = new BufferedReader(new FileReader(countFile));
 
         while ((line = in.readLine()) != null) {
             String elements[] = line.split(" ");
-            
-            if (elements.length < 4) {  continue; /*ignore n-grams info */}
-            
-            if (wordCount.get(elements[3]) == null) {
-                wordCount.put(elements[3], Integer.parseInt(elements[0]));
+
+            if (elements[TYPE].contains("GRAM")) {
+                //WE HAVE an NGRAM ENTRY
+                elementCounts.put(getNgramId(elements), Integer.parseInt(elements[COUNT]));
             } else {
-                int count = wordCount.get(elements[3]);
-                wordCount.put(elements[3], count + Integer.parseInt(elements[0]));
+                //we have a WORDTAG entry 
+                if (elementCounts.get(elements[WORD]) == null) {
+                    elementCounts.put(elements[WORD], Integer.parseInt(elements[COUNT]));
+                } else {
+                    int oldCount = elementCounts.get(elements[WORD]);
+                    elementCounts.put(elements[WORD], oldCount + Integer.parseInt(elements[COUNT]));
+                }
             }
         }
         in.close();
+    }
+    
+    /**
+     * Utility function to get the ngram id out of an string array
+     * @param elements
+     * @return 
+     */
+    private static String getNgramId(String[] elements) {
+        String ngram = elements[2];
+        for (int i = 3; i < elements.length; i++) {
+            ngram += " " + elements[i];
+        }
+        
+        return ngram;
     }
     
     public static String getMaxEmissionParameter(String x) throws IOException {
@@ -129,11 +168,8 @@ public class HMMTagger {
         double bestScore = -1;
         String bestType = "";
         
-        if (wordCount.get(x) == null || wordCount.get(x) < 5) {
-            m = emissionParams.get("_RARE_");
-        } else {
-            m = emissionParams.get(x);
-        }
+        m = (elementCounts.get(x) == null || elementCounts.get(x) < 5) ? emissionParams.get("_RARE_") : emissionParams.get(x);
+
         //find the highest scoring tag
         for (Entry<String, Double> candidate : m.entrySet()) {
             if (candidate.getValue() > bestScore) {
