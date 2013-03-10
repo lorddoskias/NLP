@@ -24,6 +24,8 @@ public class HMMTagger {
     private static final int TOKEN_TYPE = 2;
     private static final int WORD = 3;
     private static final String WORDTAG = "WORDTAG";
+    private static final int START_1 = 0;
+    private static final int START_2 = 1;
     private static Map<String, Map<String, Double>> emissionParams = new HashMap<>(); //contains the result for e(y|x)
     private static Map<String, Integer> elementCounts = new HashMap<>();    //holds count of different NGRAMs/WORDTAGs
     private static Map<String, Double> ngramParam = new HashMap<>();   //holds q(Yi | Yi-2, Yi-1) for each ngram 
@@ -205,6 +207,34 @@ public class HMMTagger {
             }
         }
         in.close();
+    }
+    
+    /**
+     * runs the viterbi algorithm. The transition probabilities and 
+     * emission probabilities are global static vars 
+     * @param sentence - a list of sentence to tag
+     * @param tags - possible tags
+     * @return 
+     */
+    private static String[] viterbi(List<String> sentence, String[] tags) {
+        double[][][] Pi = new double[sentence.size() + 2][tags.length][tags.length];
+        
+        //Initialize
+        Pi[1][START_1][START_2] = 1;
+        
+        //since 0 and 1 are reserved for K-1 and K0 
+        //i set k = 2
+        for (int k = 2; k < sentence.size(); k++) {
+            
+            for (int u = 0; u < tags.length; u++) {
+                
+                for (int v = 0; v < tags.length; v++) {
+                    
+                    Pi[k][u][v] = 0; //call a function which will search for all allowed states at k - 1
+                }
+            }
+        }
+        
     }
 }
 
