@@ -6,7 +6,10 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -34,19 +37,21 @@ public class HMMTagger {
         teachTagger(args[0]);
         
         //open test data
-        BufferedWriter out = new BufferedWriter(new FileWriter(args[1] + ".tagged"));
-        BufferedReader in = new BufferedReader(new FileReader(args[1]));
-        String line;
+//        BufferedWriter out = new BufferedWriter(new FileWriter(args[1] + ".tagged"));
+//        BufferedReader in = new BufferedReader(new FileReader(args[1]));
+//        String line;
+//        
+//        while((line = in.readLine()) != null) {
+//            if (line.equals("")) { out.newLine(); continue;}
+//            
+//            out.write(line + " " + getMaxEmissionParameter(line));
+//            out.newLine();
+//        }
+//
+//        out.close();
+//        in.close();
         
-        while((line = in.readLine()) != null) {
-            if (line.equals("")) { out.newLine(); continue;}
-            
-            out.write(line + " " + getMaxEmissionParameter(line));
-            out.newLine();
-        }
-
-        out.close();
-        in.close();
+        tagFile(args[1]);
     }
     
     
@@ -179,6 +184,27 @@ public class HMMTagger {
         }
         
         return bestType;
+    }
+    
+    public static void tagFile(String inputFile) throws IOException {
+
+        BufferedReader in = new BufferedReader(new FileReader(inputFile));
+        String line;
+        List<String> sentence = new ArrayList<>(15);
+
+        while ((line = in.readLine()) != null) {
+            // read a sentence
+            if (!line.equals("")) {
+                sentence.add(line);
+                
+            } else {
+                
+                //run viterbi
+                System.out.println(Arrays.toString(sentence.toArray()));
+                sentence.clear();
+            }
+        }
+        in.close();
     }
 }
 
