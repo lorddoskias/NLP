@@ -263,6 +263,17 @@ public class HMMTagger {
             }
         }
         
+        double maxProb = -1;
+        for (int u = 0; u < tags.length; u++) {
+            for (int v = 0; v < tags.length; v++) {
+                double currProb = Pi[sentence.size() - 1][u][v] * ngramParam.get(tags[u].getName() + " " + tags[v].getName() + " STOP");
+                if (currProb > maxProb) {
+                    maxProb = currProb;
+                }
+            }
+        }
+        
+        System.out.println("Max probability for this sentence is: " + maxProb);
         return Pi;
     }
     
