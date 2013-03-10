@@ -208,7 +208,7 @@ public class HMMTagger {
         BufferedReader in = new BufferedReader(new FileReader(inputFile));
         String line;
         List<String> sentence = new ArrayList<>(15);
-
+        State[] tags = {State.I_GENE, State.O };
         while ((line = in.readLine()) != null) {
             // read a sentence
             if (!line.equals("")) {
@@ -216,8 +216,21 @@ public class HMMTagger {
                 
             } else {
                 
-                //run viterbi
-                System.out.println(Arrays.toString(sentence.toArray()));
+               double[][][] Pi = viterbi(sentence, tags);
+               
+               ///////////////////////////////////////////////
+                for (int k = 0; k < sentence.size(); k++) {
+
+                    //for each state U
+                    for (int u = 0; u < tags.length; u++) {
+                        //for each state V
+                        for (int v = 0; v < tags.length; v++) {
+
+                            System.out.println("Pi["+k+"]["+u+"]["+v+"] =  " + Pi[k][u][v]);
+                        }
+                    }
+                }
+                ///////////////////////////////////////////////////
                 sentence.clear();
             }
         }
@@ -231,7 +244,7 @@ public class HMMTagger {
      * @param tags - possible tags
      * @return 
      */
-    private static void viterbi(List<String> sentence, State[] tags) throws IOException {
+    private static double[][][] viterbi(List<String> sentence, State[] tags) throws IOException {
         double[][][] Pi = new double[sentence.size() + 1][tags.length + 1][tags.length + 1];
         
         //this will act as the initial recursive definition
@@ -248,7 +261,9 @@ public class HMMTagger {
                     Pi[k][u][v] = findW(Pi, sentence, k, u , v); //call a function which will search for all allowed states at k - 1
                 }
             }
-        }    
+        }
+        
+        return Pi;
     }
     
     
@@ -258,15 +273,18 @@ public class HMMTagger {
 
         for (int w = 0; w < State.getStateSize(); w++) {
             double prevProbability;
-
-            if ((k - 1) == 0) {
+            double qParam;
+            //for the first word we always assume the previous probaility is 0 
+            if (k == 0) {
                 prevProbability = 1;
+                qParam = ngramParam.get("* * " + State.getStateFromId(w).getName());
             } else {
                 prevProbability = Pi[k - 1][w][u];
+                String[] ngram = {State.getStateFromId(w).getName(), State.getStateFromId(u).getName(), State.getStateFromId(v).getName()};
+                qParam = ngramParam.get(State.getStateFromId(w).getName() + " " + State.getStateFromId(u).getName() + " " + State.getStateFromId(v).getName());
             }
-
-            String[] ngram = {State.getStateFromId(w).getName(), State.getStateFromId(u).getName(), State.getStateFromId(v).getName()};
-            double currentProb = prevProbability * ngramParam.get(getNgramId(ngram)) * getMaxEmissionParameter(sentence.get(k));
+            
+            double currentProb = prevProbability * qParam * getMaxEmissionParameter(sentence.get(k));
 
             if (currentProb > maxProb) {
                 maxProb = currentProb;
