@@ -24,8 +24,7 @@ public class HMMTagger {
     private static final int TOKEN_TYPE = 2;
     private static final int WORD = 3;
     private static final String WORDTAG = "WORDTAG";
-    private static final int START_1 = 0;
-    private static final int START_2 = 1;
+    private static final int STAR = 0;
     private static Map<String, Map<String, Double>> emissionParams = new HashMap<>(); //contains the result for e(y|x)
     private static Map<String, Integer> elementCounts = new HashMap<>();    //holds count of different NGRAMs/WORDTAGs
     private static Map<String, Double> ngramParam = new HashMap<>();   //holds q(Yi | Yi-2, Yi-1) for each ngram 
@@ -169,7 +168,7 @@ public class HMMTagger {
         
         return ngram;
     }
-    
+    /*
     public static String getMaxEmissionParameter(String x) throws IOException {
         Map<String, Double> m;
         double bestScore = -1;
@@ -186,6 +185,22 @@ public class HMMTagger {
         }
         
         return bestType;
+    }
+    */
+    public static double getMaxEmissionParameter(String x) throws IOException {
+        Map<String, Double> m;
+        double bestScore = -1;
+
+        m = (elementCounts.get(x) == null || elementCounts.get(x) < 5) ? emissionParams.get("_RARE_") : emissionParams.get(x);
+
+        //find the highest scoring tag
+        for (Entry<String, Double> candidate : m.entrySet()) {
+            if (candidate.getValue() > bestScore) {
+                bestScore = candidate.getValue();
+            }
+        }
+
+        return bestScore;
     }
     
     public static void tagFile(String inputFile) throws IOException {
@@ -216,25 +231,49 @@ public class HMMTagger {
      * @param tags - possible tags
      * @return 
      */
-    private static String[] viterbi(List<String> sentence, String[] tags) {
-        double[][][] Pi = new double[sentence.size() + 2][tags.length][tags.length];
+    private static void viterbi(List<String> sentence, State[] tags) throws IOException {
+        double[][][] Pi = new double[sentence.size() + 1][tags.length + 1][tags.length + 1];
         
-        //Initialize
-        Pi[1][START_1][START_2] = 1;
+        //this will act as the initial recursive definition
+        Pi[sentence.size()][tags.length][tags.length] = 1;
         
-        //since 0 and 1 are reserved for K-1 and K0 
-        //i set k = 2
-        for (int k = 2; k < sentence.size(); k++) {
+        //for every word
+        for (int k = 0; k < sentence.size(); k++) {
             
+            //for each state U
             for (int u = 0; u < tags.length; u++) {
-                
+                //for each state V
                 for (int v = 0; v < tags.length; v++) {
                     
-                    Pi[k][u][v] = 0; //call a function which will search for all allowed states at k - 1
+                    Pi[k][u][v] = findW(Pi, sentence, k, u , v); //call a function which will search for all allowed states at k - 1
                 }
             }
+        }    
+    }
+    
+    
+    private static double findW(double[][][] Pi, List<String> sentence, int k, int u, int v) throws IOException {
+
+        double maxProb = -1;
+
+        for (int w = 0; w < State.getStateSize(); w++) {
+            double prevProbability;
+
+            if ((k - 1) == 0) {
+                prevProbability = 1;
+            } else {
+                prevProbability = Pi[k - 1][w][u];
+            }
+
+            String[] ngram = {State.getStateFromId(w).getName(), State.getStateFromId(u).getName(), State.getStateFromId(v).getName()};
+            double currentProb = prevProbability * ngramParam.get(getNgramId(ngram)) * getMaxEmissionParameter(sentence.get(k));
+
+            if (currentProb > maxProb) {
+                maxProb = currentProb;
+            }
         }
-        
+
+        return maxProb;
     }
 }
 
