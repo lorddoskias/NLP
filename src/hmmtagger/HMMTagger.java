@@ -198,7 +198,7 @@ public class HMMTagger {
         List<String> sentence = new ArrayList<>(15);
         State[] tags = {State.I_GENE, State.O };
         String line;
-        
+        int c = 1;
         while ((line = in.readLine()) != null) {
             // read a sentence
             if (!line.equals("")) {
@@ -230,28 +230,33 @@ public class HMMTagger {
         int[][][] backpointer = new int[sentence.size()][tags.length][tags.length];
         double[][][] Pi = new double[sentence.size()][tags.length][tags.length];
         
+        boolean debug = true;
         /*
          * 
          * make Pi[0][all][all] to be all 1
          * then from 1 to N+1 will be the actual words
          */
-        
+        System.out.println("Sentence has " + sentence.size() + " words");
         //for every word
         for (int k = 0; k < sentence.size(); k++) {
             //for each state U
+            
             for (int u = 0; u < tags.length; u++) {
                 //for each state V
                 for (int v = 0; v < tags.length; v++) {
-                    
-                    Pi[k][u][v] = findW(Pi, backpointer, sentence, k, u , v); //call a function which will search for all allowed states at k - 1
+                    if (debug) System.out.println("k = " + k + " U = "  + u + " V = " + v);
+                    Pi[k][u][v] = findW(Pi, backpointer, sentence, k, u , v, debug); //call a function which will search for all allowed states at k - 1
                 }
             }
         }
         
+        System.out.println("=======================");
         double maxProb = -1;
         for (int u = 0; u < tags.length; u++) {
             for (int v = 0; v < tags.length; v++) {
+                System.out.println(" U = "  + u + " V = " + v);
                 double currProb = Pi[sentence.size() - 1][u][v] * ngramParam.get(tags[u].getName() + " " + tags[v].getName() + " STOP");
+                System.out.println(" Calculating Pi[" + (sentence.size() - 1) + "," + u + "," + v +"] * q(STOP|" + tags[u].getName() + "," + tags[v].getName()+ ") = " + currProb);
                 if (currProb > maxProb) {
                     result[result.length - 2] = u;
                     result[result.length - 1] = v;
@@ -259,6 +264,8 @@ public class HMMTagger {
                 }
             }
         }
+        
+        System.out.println("Taken max probability = " + maxProb);
         
         for (int k = result.length - 3; k >= 0; k--) {
             int Yk1 = result[k+1];
@@ -271,7 +278,7 @@ public class HMMTagger {
     }
     
     
-    private static double findW(double[][][] Pi, int[][][] bp, List<String> sentence, int k, int u, int v) throws IOException {
+    private static double findW(double[][][] Pi, int[][][] bp, List<String> sentence, int k, int u, int v, boolean debug) throws IOException {
 
         double maxProb = -1;
 
@@ -283,29 +290,31 @@ public class HMMTagger {
             if (k == 0) {
                 prevProbability = 1;
                 qParam = ngramParam.get("* * " + State.getStateFromId(w).getName());
+                maxProb = prevProbability * qParam * getEmissionParameter(sentence.get(k), State.getStateFromId(v));
+                if (debug) System.out.println("Calculating Pi[0, *, *] * q(" + v + "|*, *) * e("+ sentence.get(k) + " | " + State.getStateFromId(v)+ ")");
+                break;
             } else if (k == 1) {
-                prevProbability = Pi[k - 1][w][u];
-                String ngram = "* * " + State.getStateFromId(v).getName();
-                qParam = ngramParam.get(ngram);
-//                System.out.println("We will call the parameter for: " + ngram + " " + qParam);
-            } else if (k == 2) {
                 prevProbability = Pi[k - 1][w][u];
                 String ngram = "* " + State.getStateFromId(u).getName() + " " + State.getStateFromId(v).getName();
                 qParam = ngramParam.get(ngram);
-//                System.out.println("We will call the parameter for: " + ngram + " " + qParam);
+                maxProb = prevProbability * qParam * getEmissionParameter(sentence.get(k), State.getStateFromId(v));
+                if (debug) System.out.println("Calculating Pi[" + (k - 1) + ", *," +  State.getStateFromId(u).getName() + "] * q(" + v + "|*, " + State.getStateFromId(u).getName() + ") * e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ")");
+                break;
             } else {
                 prevProbability = Pi[k - 1][w][u];
                 qParam = ngramParam.get(State.getStateFromId(w).getName() + " " + State.getStateFromId(u).getName() + " " + State.getStateFromId(v).getName());
             }
             
+            
             double currentProb = prevProbability * qParam * getEmissionParameter(sentence.get(k), State.getStateFromId(v));
-
+            if (debug) System.out.println(" For W = " + w + " Calculating Pi[" + (k - 1) + ","+  State.getStateFromId(w).getName() + "," +  State.getStateFromId(u).getName() + "] * q(" + State.getStateFromId(v).getName() + "|" + w + ", " + State.getStateFromId(u).getName() + ") * e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + currentProb);    
             if (currentProb > maxProb) {
                 maxProb = currentProb;
                 bp[k][u][v] = w;
             }
         }
 
+        if (debug) System.out.println(" Taken max probability = " + maxProb);
         return maxProb;
     }
 }
