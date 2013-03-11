@@ -7,7 +7,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,22 +36,7 @@ public class HMMTagger {
         countWords(args[0]);
         teachTagger(args[0]);
         
-        //open test data
-//        BufferedWriter out = new BufferedWriter(new FileWriter(args[1] + ".tagged"));
-//        BufferedReader in = new BufferedReader(new FileReader(args[1]));
-//        String line;
-//        
-//        while((line = in.readLine()) != null) {
-//            if (line.equals("")) { out.newLine(); continue;}
-//            
-//            out.write(line + " " + getMaxEmissionParameter(line));
-//            out.newLine();
-//        }
-//
-//        out.close();
-//        in.close();
-        
-        tagFile(args[1]);
+         tagFile(args[1]);
     }
     
     
@@ -74,11 +58,9 @@ public class HMMTagger {
                 int countY = tagCount.get(tokens[TOKEN_TYPE]);
                 int observationCount = Integer.parseInt(tokens[COUNT]);
                 //added this to not overwrite a certain hashmap
-                if (emissionParams.get(tokens[WORD]) != null) {
-                    m = emissionParams.get(tokens[WORD]);
-                } else {
-                    m = new HashMap<>(1);
-                }
+                if (emissionParams.get(tokens[WORD]) != null) { m = emissionParams.get(tokens[WORD]); } 
+                else { m = new HashMap<>(1); }
+                
                 m.put(tokens[TOKEN_TYPE], ((double) observationCount / (double)countY));
                 emissionParams.put(tokens[WORD], m);
                 
@@ -168,7 +150,7 @@ public class HMMTagger {
         
         return ngram;
     }
-    /*
+    
     public static String getMaxEmissionParameter(String x) throws IOException {
         Map<String, Double> m;
         double bestScore = -1;
@@ -186,55 +168,48 @@ public class HMMTagger {
         
         return bestType;
     }
-    */
-    public static double getMaxEmissionParameter(String x) throws IOException {
+    
+    public static double getEmissionParameter(String x, State state) throws IOException {
         Map<String, Double> m;
-        double bestScore = -1;
+        double score = -1;
 
         m = (elementCounts.get(x) == null || elementCounts.get(x) < 5) ? emissionParams.get("_RARE_") : emissionParams.get(x);
 
         //find the highest scoring tag
         for (Entry<String, Double> candidate : m.entrySet()) {
-            if (candidate.getValue() > bestScore) {
-                bestScore = candidate.getValue();
+            if (candidate.getKey().equals(state.getName())) {
+                score = candidate.getValue();
             }
         }
 
-        return bestScore;
+        return score;
     }
     
     public static void tagFile(String inputFile) throws IOException {
 
         BufferedReader in = new BufferedReader(new FileReader(inputFile));
-        String line;
+        BufferedWriter out = new BufferedWriter(new FileWriter(inputFile + ".tagged"));
         List<String> sentence = new ArrayList<>(15);
         State[] tags = {State.I_GENE, State.O };
+        String line;
+        
         while ((line = in.readLine()) != null) {
             // read a sentence
             if (!line.equals("")) {
                 sentence.add(line);
-                
             } else {
-                
-               double[][][] Pi = viterbi(sentence, tags);
-               
-               ///////////////////////////////////////////////
-                for (int k = 0; k < sentence.size(); k++) {
+                int[] res = viterbi(sentence, tags);
 
-                    //for each state U
-                    for (int u = 0; u < tags.length; u++) {
-                        //for each state V
-                        for (int v = 0; v < tags.length; v++) {
-
-                            System.out.println("Pi["+k+"]["+u+"]["+v+"] =  " + Pi[k][u][v]);
-                        }
-                    }
+                for (int i = 0; i < res.length; i++) {
+                    out.write(sentence.get(i) + " " + State.getStateFromId(res[i]).getName());
+                    out.newLine();
                 }
-                ///////////////////////////////////////////////////
+                out.newLine();
                 sentence.clear();
             }
         }
         in.close();
+        out.close();
     }
     
     /**
@@ -244,21 +219,19 @@ public class HMMTagger {
      * @param tags - possible tags
      * @return 
      */
-    private static double[][][] viterbi(List<String> sentence, State[] tags) throws IOException {
-        double[][][] Pi = new double[sentence.size() + 1][tags.length + 1][tags.length + 1];
-        
-        //this will act as the initial recursive definition
-        Pi[sentence.size()][tags.length][tags.length] = 1;
+    private static int[] viterbi(List<String> sentence, State[] tags) throws IOException {
+        int[] result = new int[sentence.size()];
+        int[][][] backpointer = new int[sentence.size()][tags.length][tags.length];
+        double[][][] Pi = new double[sentence.size()][tags.length][tags.length];
         
         //for every word
         for (int k = 0; k < sentence.size(); k++) {
-            
             //for each state U
             for (int u = 0; u < tags.length; u++) {
                 //for each state V
                 for (int v = 0; v < tags.length; v++) {
                     
-                    Pi[k][u][v] = findW(Pi, sentence, k, u , v); //call a function which will search for all allowed states at k - 1
+                    Pi[k][u][v] = findW(Pi, backpointer, sentence, k, u , v); //call a function which will search for all allowed states at k - 1
                 }
             }
         }
@@ -268,37 +241,46 @@ public class HMMTagger {
             for (int v = 0; v < tags.length; v++) {
                 double currProb = Pi[sentence.size() - 1][u][v] * ngramParam.get(tags[u].getName() + " " + tags[v].getName() + " STOP");
                 if (currProb > maxProb) {
+                    result[result.length - 2] = u;
+                    result[result.length - 1] = v;
                     maxProb = currProb;
                 }
             }
         }
         
-        System.out.println("Max probability for this sentence is: " + maxProb);
-        return Pi;
+        for (int k = result.length - 3; k >= 0; k--) {
+            int Yk1 = result[k+1];
+            int Yk2 = result[k+2];
+            result[k] = backpointer[k+2][Yk1][Yk2];
+            
+        }
+        
+        return result;
     }
     
     
-    private static double findW(double[][][] Pi, List<String> sentence, int k, int u, int v) throws IOException {
+    private static double findW(double[][][] Pi, int[][][] bp, List<String> sentence, int k, int u, int v) throws IOException {
 
         double maxProb = -1;
 
         for (int w = 0; w < State.getStateSize(); w++) {
             double prevProbability;
             double qParam;
-            //for the first word we always assume the previous probaility is 0 
+            
+            //for the first word we always assume the previous probaility is 1 
             if (k == 0) {
                 prevProbability = 1;
                 qParam = ngramParam.get("* * " + State.getStateFromId(w).getName());
             } else {
                 prevProbability = Pi[k - 1][w][u];
-                String[] ngram = {State.getStateFromId(w).getName(), State.getStateFromId(u).getName(), State.getStateFromId(v).getName()};
                 qParam = ngramParam.get(State.getStateFromId(w).getName() + " " + State.getStateFromId(u).getName() + " " + State.getStateFromId(v).getName());
             }
             
-            double currentProb = prevProbability * qParam * getMaxEmissionParameter(sentence.get(k));
+            double currentProb = prevProbability * qParam * getEmissionParameter(sentence.get(k), State.getStateFromId(w));
 
             if (currentProb > maxProb) {
                 maxProb = currentProb;
+                bp[k][u][v] = w;
             }
         }
 
