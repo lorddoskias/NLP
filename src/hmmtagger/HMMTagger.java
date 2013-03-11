@@ -23,7 +23,6 @@ public class HMMTagger {
     private static final int TOKEN_TYPE = 2;
     private static final int WORD = 3;
     private static final String WORDTAG = "WORDTAG";
-    private static final int STAR = 0;
     private static Map<String, Map<String, Double>> emissionParams = new HashMap<>(); //contains the result for e(y|x)
     private static Map<String, Integer> elementCounts = new HashMap<>();    //holds count of different NGRAMs/WORDTAGs
     private static Map<String, Double> ngramParam = new HashMap<>();   //holds q(Yi | Yi-2, Yi-1) for each ngram 
@@ -35,16 +34,8 @@ public class HMMTagger {
         
         countWords(args[0]);
         teachTagger(args[0]);
+        tagFile(args[1]);
         
-//        System.out.println(ngramParam.get("* O O"));
-//        System.out.println(ngramParam.get("* O I-GENE"));
-//        System.out.println(ngramParam.get("* I-GENE O"));
-//        System.out.println(ngramParam.get("* * O"));
-//        System.out.println(ngramParam.get("* * I-GENE"));
-//        System.out.println(ngramParam.get("* I-GENE I-GENE"));
-         tagFile(args[1]);
-        
-//        System.out.println("q(O| *, * ) = " + ngramParam.get("* * O"));
     }
     
     
@@ -159,6 +150,12 @@ public class HMMTagger {
         return ngram;
     }
     
+    /**
+     * Used for part 1 of the assignment
+     * @param x
+     * @return
+     * @throws IOException 
+     */
     public static String getMaxEmissionParameter(String x) throws IOException {
         Map<String, Double> m;
         double bestScore = -1;
@@ -294,9 +291,10 @@ public class HMMTagger {
                 qParam = ngramParam.get("* * " + State.getStateFromId(v).getName());
                 maxProb = prevProbability * qParam * getEmissionParameter(sentence.get(k), State.getStateFromId(v));
                 if (debug) {
-                    System.out.println("q(" + v + "|*, *) = " + qParam);
-                    System.out.println("e("+ sentence.get(k) + " | " + State.getStateFromId(v)+ ") = " + getEmissionParameter(sentence.get(k), State.getStateFromId(v)));
-                    System.out.println("Calculating Pi[0, *, *] * q(" + v + "|*, *) * e("+ sentence.get(k) + " | " + State.getStateFromId(v)+ ")");
+                    System.out.println(" Pi[0, *, *] = 1" );
+                    System.out.println(" q(" + v + "|*, *) = " + qParam);
+                    System.out.println(" e("+ sentence.get(k) + " | " + State.getStateFromId(v)+ ") = " + getEmissionParameter(sentence.get(k), State.getStateFromId(v)));
+                    System.out.println(" Calculating Pi[0, *, *] * q(" + v + "|*, *) * e("+ sentence.get(k) + " | " + State.getStateFromId(v)+ ")");
                 }
                 break;
             } else if (k == 1) {
@@ -305,28 +303,37 @@ public class HMMTagger {
                 qParam = ngramParam.get(ngram);
                 maxProb = prevProbability * qParam * getEmissionParameter(sentence.get(k), State.getStateFromId(v));
                 if (debug) {
-                    System.out.println("q(" + v + "|*, " + State.getStateFromId(u).getName() + ") = " + qParam );
-                    System.out.println("e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + getEmissionParameter(sentence.get(k), State.getStateFromId(v)));
-                    System.out.println("Calculating Pi[" + (k - 1) + ", *," +  State.getStateFromId(u).getName() + "] * q(" + v + "|*, " + State.getStateFromId(u).getName() + ") * e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ")");
+                    System.out.println(" q(" + v + "|*, " + State.getStateFromId(u).getName() + ") = " + qParam );
+                    System.out.println(" e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + getEmissionParameter(sentence.get(k), State.getStateFromId(v)));
+                    System.out.println(" Pi[" + (k - 1) + ", *," +  State.getStateFromId(u).getName() + "] = " + prevProbability);
+                    System.out.println(" Calculating Pi[" + (k - 1) + ", *," +  State.getStateFromId(u).getName() + "] * q(" + v + "|*, " + State.getStateFromId(u).getName() + ") * e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ")");
                 }
                 break;
-            } else {
-                prevProbability = Pi[k - 1][w][u];
-                qParam = ngramParam.get(State.getStateFromId(w).getName() + " " + State.getStateFromId(u).getName() + " " + State.getStateFromId(v).getName());
             }
-            
-            
+                
+            prevProbability = Pi[k - 1][w][u];
+            qParam = ngramParam.get(State.getStateFromId(w).getName() + " " + State.getStateFromId(u).getName() + " " + State.getStateFromId(v).getName());
             double currentProb = prevProbability * qParam * getEmissionParameter(sentence.get(k), State.getStateFromId(v));
+            
             if (debug) {
+                System.out.println("-------------------------------------");
+                System.out.println(" Pi[" + (k - 1) + ","+  State.getStateFromId(w).getName() + "," +  State.getStateFromId(u).getName() + "] = " + prevProbability);
+                System.out.println(" q(" + State.getStateFromId(w).getName() + "|" + State.getStateFromId(u).getName() + ", " + State.getStateFromId(v).getName() + ") = " + qParam);
+                System.out.println(" e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + getEmissionParameter(sentence.get(k), State.getStateFromId(v)));
                 System.out.println(" For W = " + w + " Calculating Pi[" + (k - 1) + ","+  State.getStateFromId(w).getName() + "," +  State.getStateFromId(u).getName() + "] * q(" + State.getStateFromId(v).getName() + "|" + w + ", " + State.getStateFromId(u).getName() + ") * e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + currentProb);
             }    
+            
             if (currentProb > maxProb) {
                 maxProb = currentProb;
                 bp[k][u][v] = w;
             }
         }
 
-        if (debug) System.out.println(" Taken max probability = " + maxProb);
+        if (debug) {
+            System.out.println();
+            System.out.println(" Taken max probability = " + maxProb);
+            System.out.println("==========================================");
+        }
         return maxProb;
     }
 }
