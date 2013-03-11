@@ -36,6 +36,12 @@ public class HMMTagger {
         countWords(args[0]);
         teachTagger(args[0]);
         
+//        System.out.println(ngramParam.get("* O O"));
+//        System.out.println(ngramParam.get("* O I-GENE"));
+//        System.out.println(ngramParam.get("* I-GENE O"));
+//        System.out.println(ngramParam.get("* * O"));
+//        System.out.println(ngramParam.get("* * I-GENE"));
+//        System.out.println(ngramParam.get("* I-GENE I-GENE"));
          tagFile(args[1]);
     }
     
@@ -224,6 +230,12 @@ public class HMMTagger {
         int[][][] backpointer = new int[sentence.size()][tags.length][tags.length];
         double[][][] Pi = new double[sentence.size()][tags.length][tags.length];
         
+        /*
+         * 
+         * make Pi[0][all][all] to be all 1
+         * then from 1 to N+1 will be the actual words
+         */
+        
         //for every word
         for (int k = 0; k < sentence.size(); k++) {
             //for each state U
@@ -271,12 +283,22 @@ public class HMMTagger {
             if (k == 0) {
                 prevProbability = 1;
                 qParam = ngramParam.get("* * " + State.getStateFromId(w).getName());
+            } else if (k == 1) {
+                prevProbability = Pi[k - 1][w][u];
+                String ngram = "* * " + State.getStateFromId(v).getName();
+                qParam = ngramParam.get(ngram);
+//                System.out.println("We will call the parameter for: " + ngram + " " + qParam);
+            } else if (k == 2) {
+                prevProbability = Pi[k - 1][w][u];
+                String ngram = "* " + State.getStateFromId(u).getName() + " " + State.getStateFromId(v).getName();
+                qParam = ngramParam.get(ngram);
+//                System.out.println("We will call the parameter for: " + ngram + " " + qParam);
             } else {
                 prevProbability = Pi[k - 1][w][u];
                 qParam = ngramParam.get(State.getStateFromId(w).getName() + " " + State.getStateFromId(u).getName() + " " + State.getStateFromId(v).getName());
             }
             
-            double currentProb = prevProbability * qParam * getEmissionParameter(sentence.get(k), State.getStateFromId(w));
+            double currentProb = prevProbability * qParam * getEmissionParameter(sentence.get(k), State.getStateFromId(v));
 
             if (currentProb > maxProb) {
                 maxProb = currentProb;
