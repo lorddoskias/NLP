@@ -37,7 +37,7 @@ public class HMMTagger {
 //        System.out.println("e = " + getEmissionParameter("in", State.I_GENE));
 //        System.out.println("q = " + ngramParam.get("O I-GENE I-GENE"));
 //        System.out.println("Result: " + 8.72732885782e-7 * ngramParam.get("O I-GENE I-GENE")  * getEmissionParameter("in", State.I_GENE));
-        tagFile(args[1]);
+          tagFile(args[1]);
         
     }
     
@@ -179,7 +179,7 @@ public class HMMTagger {
     
     public static double getEmissionParameter(String x, State state) throws IOException {
         Map<String, Double> m;
-        double score = -1;
+        double score = 0;
 
         m = (elementCounts.get(x) == null || elementCounts.get(x) < 5) ? emissionParams.get("_RARE_") : emissionParams.get(x);
 
@@ -239,7 +239,7 @@ public class HMMTagger {
         
         double[][][] Pi = new double[sentence.size()][tags.length][tags.length];
         
-        boolean debug = true;
+        boolean debug = false;
         /*
          * 
          * make Pi[0][all][all] to be all 1
