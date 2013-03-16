@@ -239,7 +239,7 @@ public class HMMTagger {
         
         double[][][] Pi = new double[sentence.size()][tags.length][tags.length];
         
-        boolean debug = false;
+        boolean debug = true;
         /*
          * 
          * make Pi[0][all][all] to be all 1
@@ -288,8 +288,9 @@ public class HMMTagger {
     private static double findW(double[][][] Pi, int[][][] bp, List<String> sentence, int k, int u, int v, boolean debug) throws IOException {
 
         double maxProb = -1;
-
-        for (int w = 0; w < State.getStateSize(); w++) {
+        short argMax = -1;
+        
+        for (short w = 0; w < State.getStateSize(); w++) {
             double prevProbability;
             double qParam;
             double e;
@@ -332,18 +333,24 @@ public class HMMTagger {
                 System.out.println(" Pi[" + (k - 1) + ","+  State.getStateFromId(w).getName() + "," +  State.getStateFromId(u).getName() + "] = " + prevProbability);
                 System.out.println(" q(" + State.getStateFromId(w).getName() + "|" + State.getStateFromId(u).getName() + ", " + State.getStateFromId(v).getName() + ") = " + qParam);
                 System.out.println(" e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + getEmissionParameter(sentence.get(k), State.getStateFromId(v)));
-                System.out.println(" For W = " + w + " Calculating Pi[" + (k - 1) + ","+  State.getStateFromId(w).getName() + "," +  State.getStateFromId(u).getName() + "] * q(" + State.getStateFromId(v).getName() + "|" + w + ", " + State.getStateFromId(u).getName() + ") * e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + currentProb);
+                System.out.println(" For W = " + State.getStateFromId(w).getName() + " Calculating Pi[" + (k - 1) + ","+  State.getStateFromId(w).getName() + "," +  State.getStateFromId(u).getName() + "] * q(" + State.getStateFromId(v).getName() + "|" + State.getStateFromId(w).getName() + ", " + State.getStateFromId(u).getName() + ") * e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + currentProb);
             }    
             
             if (currentProb > maxProb) {
                 maxProb = currentProb;
                 bp[k][u][v] = w;
+                argMax = w;
             }
         }
 
         if (debug) {
             System.out.println();
-            System.out.println(" Taken max probability = " + maxProb);
+            if (argMax < 0) {
+                System.out.println(" Taken max probability = " + maxProb);
+            } else {
+                System.out.println(" Taken max probability = " + maxProb + " => BP[" + k + "," + State.getStateFromId(u).getName() + "," + State.getStateFromId(v).getName() + "] = " + State.getStateFromId(argMax).getName());
+            }
+            
             System.out.println("==========================================");
         }
         return maxProb;
