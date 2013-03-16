@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -252,7 +253,7 @@ public class HMMTagger {
             for (int u = 0; u < tags.length; u++) {
                 //for each state V
                 for (int v = 0; v < tags.length; v++) {
-                    if (debug) System.out.println("k = " + k + " U = "  + u + " V = " + v);
+                    if (debug) System.out.println("Pi[" + k + ","  + State.getStateFromId(u).getName() + "," + State.getStateFromId(v).getName() + "]");
                     Pi[k][u][v] = findW(Pi, backpointer, sentence, k, u , v, debug); //call a function which will search for all allowed states at k - 1
                 }
             }
@@ -287,7 +288,7 @@ public class HMMTagger {
     
     private static double findW(double[][][] Pi, int[][][] bp, List<String> sentence, int k, int u, int v, boolean debug) throws IOException {
 
-        double maxProb = -1;
+        double maxProb = 0;
         short argMax = -1;
         
         for (short w = 0; w < State.getStateSize(); w++) {
@@ -303,7 +304,7 @@ public class HMMTagger {
                 maxProb = prevProbability * qParam * e;
                 if (debug) {
                     System.out.println(" Pi[0, *, *] = 1" );
-                    System.out.println(" q(" + v + "|*, *) = " + qParam);
+                    System.out.println(" q(" + State.getStateFromId(v).getName() + "|*, *) = " + qParam);
                     System.out.println(" e("+ sentence.get(k) + " | " + State.getStateFromId(v)+ ") = " + getEmissionParameter(sentence.get(k), State.getStateFromId(v)));
                     System.out.println(" Calculating Pi[0, *, *] * q(" + v + "|*, *) * e("+ sentence.get(k) + " | " + State.getStateFromId(v)+ ")");
                 }
@@ -315,7 +316,7 @@ public class HMMTagger {
                 e = getEmissionParameter(sentence.get(k), State.getStateFromId(v));
                 maxProb = prevProbability * qParam * e;
                 if (debug) {
-                    System.out.println(" q(" + v + "|*, " + State.getStateFromId(u).getName() + ") = " + qParam );
+                    System.out.println(" q(" + State.getStateFromId(v).getName() + "|*, " + State.getStateFromId(u).getName() + ") = " + qParam );
                     System.out.println(" e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + getEmissionParameter(sentence.get(k), State.getStateFromId(v)));
                     System.out.println(" Pi[" + (k - 1) + ", *," +  State.getStateFromId(u).getName() + "] = " + prevProbability);
                     System.out.println(" Calculating Pi[" + (k - 1) + ", *," +  State.getStateFromId(u).getName() + "] * q(" + v + "|*, " + State.getStateFromId(u).getName() + ") * e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ")");
@@ -331,9 +332,9 @@ public class HMMTagger {
             if (debug) {
                 System.out.println("-------------------------------------");
                 System.out.println(" Pi[" + (k - 1) + ","+  State.getStateFromId(w).getName() + "," +  State.getStateFromId(u).getName() + "] = " + prevProbability);
-                System.out.println(" q(" + State.getStateFromId(w).getName() + "|" + State.getStateFromId(u).getName() + ", " + State.getStateFromId(v).getName() + ") = " + qParam);
+                System.out.println(" q(" + State.getStateFromId(v).getName() + "|" + State.getStateFromId(w).getName() + ", " + State.getStateFromId(u).getName() + ") = " + qParam);
                 System.out.println(" e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + getEmissionParameter(sentence.get(k), State.getStateFromId(v)));
-                System.out.println(" For W = " + State.getStateFromId(w).getName() + " Calculating Pi[" + (k - 1) + ","+  State.getStateFromId(w).getName() + "," +  State.getStateFromId(u).getName() + "] * q(" + State.getStateFromId(v).getName() + "|" + State.getStateFromId(w).getName() + ", " + State.getStateFromId(u).getName() + ") * e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + currentProb);
+                System.out.println(" For W = " + State.getStateFromId(w).getName() + " => Calculating Pi[" + (k - 1) + ","+  State.getStateFromId(w).getName() + "," +  State.getStateFromId(u).getName() + "] * q(" + State.getStateFromId(v).getName() + "|" + State.getStateFromId(w).getName() + ", " + State.getStateFromId(u).getName() + ") * e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + currentProb);
             }    
             
             if (currentProb > maxProb) {
@@ -346,8 +347,8 @@ public class HMMTagger {
         if (debug) {
             System.out.println();
             if (argMax < 0) {
-                System.out.println(" Taken max probability = " + maxProb);
-            } else {
+                System.out.println("argmax None");
+            } else if(argMax != -1) {
                 System.out.println(" Taken max probability = " + maxProb + " => BP[" + k + "," + State.getStateFromId(u).getName() + "," + State.getStateFromId(v).getName() + "] = " + State.getStateFromId(argMax).getName());
             }
             

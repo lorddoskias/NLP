@@ -34,7 +34,7 @@ public enum State {
                 return O;
         }
             
-        throw new IllegalArgumentException("Unrecognised state id");
+        throw new IllegalArgumentException("Unrecognised state id : " + id);
     }
     
     public static int getStateSize() { return 2; }
