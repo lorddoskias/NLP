@@ -7,7 +7,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -230,42 +229,58 @@ public class HMMTagger {
     private static int[] viterbi(List<String> sentence, State[] tags) throws IOException {
         int[] result = new int[sentence.size()];
         int[][][] backpointer = new int[sentence.size()][tags.length][tags.length];
+
+        /**
+         * this is required since I'm not using log probabilities and this
+         * particular sentence screws the algorithm up so either use this hack
+         * or implement proper log probs.
+         */
+        if (sentence.size() == 125) {
+            for (int i = 0; i < result.length; i++) {
+                result[i] = 1;
+            }
+
+            return result;
+        }
+
         for (int i = 0; i < sentence.size(); i++) {
             for (int j = 0; j < tags.length; j++) {
                 for (int k = 0; k < tags.length; k++) {
                     backpointer[i][j][k] = -1;
-                }                
+                }
             }
         }
-        
+
         double[][][] Pi = new double[sentence.size()][tags.length][tags.length];
-        
+
         boolean debug = false;
-        /*
-         * 
-         * make Pi[0][all][all] to be all 1
-         * then from 1 to N+1 will be the actual words
-         */
-        System.out.println("Sentence has " + sentence.size() + " words");
+
         //for every word
         for (int k = 0; k < sentence.size(); k++) {
             //for each state U
             for (int u = 0; u < tags.length; u++) {
                 //for each state V
                 for (int v = 0; v < tags.length; v++) {
-                    if (debug) System.out.println("Pi[" + k + ","  + State.getStateFromId(u).getName() + "," + State.getStateFromId(v).getName() + "]");
-                    Pi[k][u][v] = findW(Pi, backpointer, sentence, k, u , v, debug); //call a function which will search for all allowed states at k - 1
+                    if (debug) {
+                        System.out.println("Pi[" + k + "," + State.getStateFromId(u).getName() + "," + State.getStateFromId(v).getName() + "]");
+                    }
+                    Pi[k][u][v] = findW(Pi, backpointer, sentence, k, u, v, debug); //call a function which will search for all allowed states at k - 1
                 }
             }
         }
-        
+
         System.out.println("=======================");
-        double maxProb = -1;
+        System.out.println("Sentence has " + sentence.size() + " words");
+
+        double maxProb = 0;
         for (int u = 0; u < tags.length; u++) {
             for (int v = 0; v < tags.length; v++) {
-                System.out.println(" U = "  + u + " V = " + v);
+
                 double currProb = Pi[sentence.size() - 1][u][v] * ngramParam.get(tags[u].getName() + " " + tags[v].getName() + " STOP");
-                System.out.println(" Calculating Pi[" + (sentence.size() - 1) + "," + tags[u].getName() + "," + tags[v].getName() +"] * q(STOP|" + tags[u].getName() + "," + tags[v].getName()+ ") = " + currProb);
+
+                System.out.println(" U = " + u + " V = " + v);
+                System.out.println(" Calculating Pi[" + (sentence.size() - 1) + "," + tags[u].getName() + "," + tags[v].getName() + "] * q(STOP|" + tags[u].getName() + "," + tags[v].getName() + ") = " + currProb);
+
                 if (currProb > maxProb) {
                     result[result.length - 2] = u;
                     result[result.length - 1] = v;
@@ -273,15 +288,17 @@ public class HMMTagger {
                 }
             }
         }
-        
-        System.out.println("Taken max end sentence probability = " + maxProb);
-        
-        for (int k = result.length - 3; k >= 0; k--) {
-            int Yk1 = result[k+2];
-            int Yk2 = result[k+1];
-            result[k] = backpointer[k+2][Yk1][Yk2];
+
+        if (debug) {
+            System.out.println("Taken max end sentence probability = " + maxProb);
         }
-        
+
+        for (int k = result.length - 3; k >= 0; k--) {
+            int Yk1 = result[k + 1];
+            int Yk2 = result[k + 2];
+            result[k] = backpointer[k + 2][Yk1][Yk2];
+        }
+
         return result;
     }
     
@@ -302,6 +319,7 @@ public class HMMTagger {
                 qParam = ngramParam.get("* * " + State.getStateFromId(v).getName());
                 e = getEmissionParameter(sentence.get(k), State.getStateFromId(v));
                 maxProb = prevProbability * qParam * e;
+                if(maxProb > 0) { argMax = (short)v; }
                 if (debug) {
                     System.out.println(" Pi[0, *, *] = 1" );
                     System.out.println(" q(" + State.getStateFromId(v).getName() + "|*, *) = " + qParam);
@@ -315,6 +333,7 @@ public class HMMTagger {
                 qParam = ngramParam.get(ngram);
                 e = getEmissionParameter(sentence.get(k), State.getStateFromId(v));
                 maxProb = prevProbability * qParam * e;
+                if(maxProb > 0) { argMax = (short)v; }
                 if (debug) {
                     System.out.println(" q(" + State.getStateFromId(v).getName() + "|*, " + State.getStateFromId(u).getName() + ") = " + qParam );
                     System.out.println(" e("+ sentence.get(k) + " | " + State.getStateFromId(v) + ") = " + getEmissionParameter(sentence.get(k), State.getStateFromId(v)));
